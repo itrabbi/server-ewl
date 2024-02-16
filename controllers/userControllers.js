@@ -1,5 +1,8 @@
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
+const fs = require('fs')
+const path = require('path')
+const { v4: uuid } = require('uuid')
 
 const User = require("../models/userModel")
 const HttpError = require("../models/errorModel")
@@ -101,7 +104,7 @@ const loginUser = async (req, res, next) => {
 // PROTECTED
 const getUser = async (req, res, next) => {
     try {
-        const {id} = req.params;
+        const { id } = req.params;
         const user = await User.findById(id).select('-password')
         if (!user) {
             return next(new HttpError("User not found", 404))
@@ -130,8 +133,50 @@ const getUser = async (req, res, next) => {
 // POST : api/users/change-avatar
 // PROTECTED
 const changeAvatar = async (req, res, next) => {
-    res.json("Change user avatar")
-}
+    try {
+        if (!req.files.avatar) {
+            return next(new HttpError("Please choose an image.", 422));
+        }
+
+        // Find user from database
+        const user = await User.findById(req.user.id);
+
+        // Delete old avatar if it exists
+        if (user.avatar) {
+            fs.unlink(path.join(__dirname, '..', 'uploads', user.avatar), (err) => {
+                if (err) {
+                    return next(new HttpError(err));
+                }
+            });
+        }
+
+        const { avatar } = req.files;
+
+        // Check file size
+        if (avatar.size > 500000) {
+            return next(new HttpError("Profile picture too big. Should be less than 500kb", 422));
+        }
+
+        let fileName = avatar.name;
+        let splittedFilename = fileName.split('.');
+        let newFileName = splittedFilename[0] + uuid() + '.' + splittedFilename[splittedFilename.length - 1];
+
+        avatar.mv(path.join(__dirname, '..', 'uploads', newFileName), async (err) => {
+            if (err) {
+                return next(new HttpError(err));
+            }
+
+            const updatedAvatar = await User.findByIdAndUpdate(req.user.id, { avatar: newFileName }, { new: true });
+            if (!updatedAvatar) {
+                return next(new HttpError("Avatar couldn't be changed.", 422));
+            }
+            res.status(200).json(updatedAvatar);
+        });
+
+    } catch (error) {
+        return next(new HttpError(error));
+    }
+};
 
 
 
