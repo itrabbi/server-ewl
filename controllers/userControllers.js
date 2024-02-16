@@ -191,15 +191,57 @@ const changeAvatar = async (req, res, next) => {
 
 
 
-
 // =================== EDIT USER DETAILS (from profile)
 // POST : api/users/edit-user
 // PROTECTED
 const editUser = async (req, res, next) => {
-    res.json("Edit user deatails")
-}
+    try {
+        const { name, email, currentPassword, newPassword, newConfirmPassword } = req.body;
 
+        if (!name || !email || !currentPassword) {
+            return next(new HttpError("Fill in all fields.", 422));
+        }
 
+        // Get user from database
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return next(new HttpError("User not found.", 403));
+        }
+
+        // Make sure new email doesn't already exist
+        const emailExist = await User.findOne({ email });
+        // We want to update other details with/without changing the email (which is a unique id because we use it to login)
+        if (emailExist && (emailExist._id != req.user.id)) {
+            return next(new HttpError("Email already exists", 422));
+        }
+
+        // Compare current password to DB password
+        const validateUserPassword = await bcrypt.compare(currentPassword, user.password);
+        if (!validateUserPassword) {
+            return next(new HttpError("Invalid current password", 422));
+        }
+
+        // If user provided new password, validate and update
+        if (newPassword && newConfirmPassword) {
+            if (newPassword !== newConfirmPassword) {
+                return next(new HttpError("New passwords do not match", 422));
+            }
+            // Hash new password
+            const salt = await bcrypt.genSalt(10);
+            const hash = await bcrypt.hash(newPassword, salt);
+
+            // Update user info in database with new password
+            const newInfo = await User.findByIdAndUpdate(req.user.id, { name, email, password: hash }, { new: true });
+            res.status(200).json(newInfo);
+        } else {
+            // Update user info in database without changing the password
+            const newInfo = await User.findByIdAndUpdate(req.user.id, { name, email }, { new: true });
+            res.status(200).json(newInfo);
+        }
+    } catch (error) {
+        return next(new HttpError(error));
+    }
+};
 
 
 
