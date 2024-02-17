@@ -117,7 +117,13 @@ const getPost = async (req, res, next) => {
 // GET : api/posts/categories/:category
 // UNPROTECTED
 const getCatPost = async (req, res, next) => {
-    res.json("Get post by category")
+    try {
+        const { category } = req.params;
+        const catPosts = await Post.find({ category}).sort({createdAt: -1})
+        res.status(200).json(catPosts)
+    } catch (error) {
+        return next(new HttpError(error)) 
+    }
 }
 
 
