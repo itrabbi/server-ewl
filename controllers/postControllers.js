@@ -64,9 +64,8 @@ const createPost = async (req, res, next) => {
 // UNPROTECTED
 const getPosts = async (req, res, next) => {
     try {
-        const posts = await Post.find().sort({updateAt: -1})
+        const posts = await Post.find().sort({updatedAt: -1})
         res.status(200).json(posts)
-
     } catch (error) {
         return next(new HttpError(error))
     }
@@ -89,7 +88,16 @@ const getPosts = async (req, res, next) => {
 // GET : api/posts/:id
 // UNPROTECTED
 const getPost = async (req, res, next) => {
-    res.json("Get single post")
+    try {
+        const postId = req.params.id;
+        const post = await Post.findById(postId);
+        if(!post){
+            return next (new HttpError("Post not found.", 404))
+        }
+        res.status(200).json(post)
+    } catch (error) {
+        return next(new HttpError(error)) 
+    }
 }
 
 
