@@ -74,7 +74,9 @@ const getPost = async (req, res, next) => {
         if (!post) {
             return next(new HttpError("Post not found.", 404))
         }
-        res.status(200).json(post)
+        post.viewCount++;
+        const updatedPost = await post.save();
+        res.status(200).json(updatedPost)
     } catch (error) {
         return next(new HttpError(error))
     }
